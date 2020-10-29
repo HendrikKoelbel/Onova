@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Onova.Exceptions;
 using Onova.Internal;
+using Onova.Internal.Extensions;
 
 namespace Onova.Services
 {
@@ -58,7 +59,7 @@ namespace Onova.Services
         }
 
         /// <inheritdoc />
-        public Task<IReadOnlyList<Version>> GetPackageVersionsAsync()
+        public Task<IReadOnlyList<Version>> GetPackageVersionsAsync(CancellationToken cancellationToken = default)
         {
             var versions = GetPackageVersionFilePathMap().Keys.ToArray();
             return Task.FromResult((IReadOnlyList<Version>) versions);

@@ -1,3 +1,29 @@
+### v2.6.2 (17-Sep-2020)
+
+- Fixed an issue in `GithubPackageResolver` which prevented it from working properly with private repositories. (Thanks [@derech1e](https://github.com/derech1e))
+
+### v2.6.1 (29-Jul-2020)
+
+- Fixed an issue in `GithubPackageResolver` where the version was not extracted correctly if release name was not set, but tag name was. (Thanks [@miakh](https://github.com/miakh))
+- Changed logging in `Onova.Updater` so that each new entry is flushed to file as soon as possible. This should help avoid empty logs after crashes.
+
+### v2.6 (04-Apr-2020)
+
+- Added an overload for `LaunchUpdater` that allows specifying custom command line arguments to use when restarting the application.
+- Fixed an issue where the application was incorrectly restarted with a hidden window in case of a console application.
+- Replaced Newtonsoft.Json dependency with System.Text.Json. This means that Onova doesn't have any external dependencies now, when used in a project targeting .NET Core 3.0 or higher.
+- Extended support for cancellation to `CheckForUpdatesAsync` and some other methods.
+- Supported .NET Framework version was bumped from v4.6 to v4.6.1.
+
+Note, there were some very minor changes in interfaces `IUpdateManager` and `IPackageResolver`. If you were implementing them yourself, you will have to update to the new contract, but the changes should be trivial.
+
+### v2.5.2 (02-Jan-2020)
+
+- Added an overload for `AssemblyMetadata.FromAssembly` that also takes an assembly file path. This can be used to override default assembly file path in cases where the entry assembly is launched via a proxy.
+- Added `IUpdateManager.Updatee` property to expose the updatee metadata for convenience. For example, it can be used to show current application version in the UI.
+- Added nullable reference type annotations.
+- Added source link.
+
 ### v2.5.1 (09-Oct-2019)
 
 - Fixed `GetPreparedUpdates` throwing an exception when storage directory hasn't been created yet.

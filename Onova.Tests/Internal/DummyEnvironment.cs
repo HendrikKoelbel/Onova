@@ -5,24 +5,30 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Threading.Tasks;
 using CliWrap;
+using CliWrap.Buffered;
 using Mono.Cecil;
+using Polly;
 
 namespace Onova.Tests.Internal
 {
     internal class DummyEnvironment : IDisposable
     {
         private static readonly Assembly DummyAssembly = typeof(Dummy.Program).Assembly;
-        private static readonly string DummyAssemblyFileName = Path.GetFileName(DummyAssembly.Location);
+        private static readonly string DummyAssemblyFileName = Path.GetFileName(DummyAssembly.Location)!;
         private static readonly string DummyAssemblyDirPath = Path.GetDirectoryName(DummyAssembly.Location)!;
 
         private readonly string _rootDirPath;
 
-        private string DummyFilePath => Path.Combine(_rootDirPath, DummyAssemblyFileName);
-        private string DummyPackagesDirPath => Path.Combine(_rootDirPath, "Packages");
+        private string DummyFilePath { get; }
+
+        private string DummyPackagesDirPath { get; }
 
         public DummyEnvironment(string rootDirPath)
         {
             _rootDirPath = rootDirPath;
+
+            DummyFilePath = Path.Combine(_rootDirPath, DummyAssemblyFileName);
+            DummyPackagesDirPath = Path.Combine(_rootDirPath, "Packages");
         }
 
         private void SetAssemblyVersion(string filePath, Version version)
@@ -72,8 +78,11 @@ namespace Onova.Tests.Internal
 
         private void Cleanup()
         {
-            if (Directory.Exists(_rootDirPath))
-                Directory.Delete(_rootDirPath, true);
+            // Sometimes this fails for some reason, even when dummy has already exited.
+            // Use a retry policy to circumvent that.
+            var policy = Policy.Handle<UnauthorizedAccessException>().WaitAndRetry(5, _ => TimeSpan.FromSeconds(1));
+
+            policy.Execute(() => DirectoryEx.DeleteIfExists(_rootDirPath));
         }
 
         public void Setup(Version baseVersion, IReadOnlyList<Version> availableVersions)
@@ -86,11 +95,22 @@ namespace Onova.Tests.Internal
                 CreatePackage(version);
         }
 
-        public string GetLastRunArguments(Version version) => File.ReadAllText(Path.Combine(_rootDirPath, $"lastrun-{version}.txt"));
-
-        public async Task<string> RunDummyAsync(string arguments)
+        public string[] GetLastRunArguments(Version version)
         {
-            var result = await Cli.Wrap(DummyFilePath).SetArguments(arguments).ExecuteAsync();
+            var filePath = Path.Combine(_rootDirPath, $"lastrun-{version}.txt");
+            return File.Exists(filePath) ? File.ReadAllLines(filePath) : Array.Empty<string>();
+        }
+
+        public bool IsRunning() => !FileEx.CheckWriteAccess(DummyFilePath);
+
+        public async Task<string> RunDummyAsync(params string[] arguments)
+        {
+            var result = await Cli.Wrap("dotnet")
+                .WithArguments(a => a
+                    .Add(DummyFilePath)
+                    .Add(arguments))
+                .ExecuteBufferedAsync();
+
             return result.StandardOutput;
         }
 

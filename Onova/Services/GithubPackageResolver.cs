@@ -5,12 +5,13 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using Onova.Exceptions;
 using Onova.Internal;
+using Onova.Internal.Extensions;
 
 namespace Onova.Services
 {
@@ -32,8 +33,12 @@ namespace Onova.Services
         /// <summary>
         /// Initializes an instance of <see cref="GithubPackageResolver"/>.
         /// </summary>
-        public GithubPackageResolver(HttpClient httpClient, string apiBaseAddress, string repositoryOwner,
-            string repositoryName, string assetNamePattern)
+        public GithubPackageResolver(
+            HttpClient httpClient,
+            string apiBaseAddress,
+            string repositoryOwner,
+            string repositoryName,
+            string assetNamePattern)
         {
             _httpClient = httpClient;
             _apiBaseAddress = apiBaseAddress;
@@ -45,7 +50,10 @@ namespace Onova.Services
         /// <summary>
         /// Initializes an instance of <see cref="GithubPackageResolver"/>.
         /// </summary>
-        public GithubPackageResolver(HttpClient httpClient, string repositoryOwner, string repositoryName,
+        public GithubPackageResolver(
+            HttpClient httpClient,
+            string repositoryOwner,
+            string repositoryName,
             string assetNamePattern)
             : this(httpClient, "https://api.github.com", repositoryOwner, repositoryName, assetNamePattern)
         {
@@ -54,45 +62,57 @@ namespace Onova.Services
         /// <summary>
         /// Initializes an instance of <see cref="GithubPackageResolver"/>.
         /// </summary>
-        public GithubPackageResolver(string apiBaseAddress, string repositoryOwner, string repositoryName,
+        public GithubPackageResolver(
+            string apiBaseAddress,
+            string repositoryOwner,
+            string repositoryName,
             string assetNamePattern)
-            : this(HttpClientEx.GetSingleton(), apiBaseAddress, repositoryOwner, repositoryName, assetNamePattern)
+            : this(Http.Client, apiBaseAddress, repositoryOwner, repositoryName, assetNamePattern)
         {
         }
 
         /// <summary>
         /// Initializes an instance of <see cref="GithubPackageResolver"/>.
         /// </summary>
-        public GithubPackageResolver(string repositoryOwner, string repositoryName, string assetNamePattern)
-            : this(HttpClientEx.GetSingleton(), repositoryOwner, repositoryName, assetNamePattern)
+        public GithubPackageResolver(
+            string repositoryOwner,
+            string repositoryName,
+            string assetNamePattern)
+            : this(Http.Client, repositoryOwner, repositoryName, assetNamePattern)
         {
         }
 
-        private IReadOnlyDictionary<Version, string> ParsePackageVersionUrlMap(JToken releasesJson)
+        private IReadOnlyDictionary<Version, string> ParsePackageVersionUrlMap(JsonElement releasesJson)
         {
             var map = new Dictionary<Version, string>();
 
-            foreach (var releaseJson in releasesJson)
+            foreach (var releaseJson in releasesJson.EnumerateArray())
             {
                 // Get release name
-                var releaseName = releaseJson["name"].Value<string>();
+                var releaseTitle = releaseJson.GetProperty("name").GetString();
+
+                // In case property name is null, empty or whitespace then in web version of GitHub it is replaced by a property "tag_name"
+                if (string.IsNullOrWhiteSpace(releaseTitle))
+                {
+                    releaseTitle = releaseJson.GetProperty("tag_name").GetString();
+                }
 
                 // Try to parse version
-                var versionText = Regex.Match(releaseName, "(\\d+\\.\\d+(?:\\.\\d+)?(?:\\.\\d+)?)").Groups[1].Value;
+                var versionText = Regex.Match(releaseTitle, "(\\d+\\.\\d+(?:\\.\\d+)?(?:\\.\\d+)?)").Groups[1].Value;
                 if (!Version.TryParse(versionText, out var version))
                     continue;
 
                 // Skip pre-releases
-                var isPreRelease = releaseJson["prerelease"].Value<bool>();
+                var isPreRelease = releaseJson.GetProperty("prerelease").GetBoolean();
                 if (isPreRelease)
                     continue;
 
                 // Find asset
-                var assetsJson = releaseJson["assets"];
-                foreach (var assetJson in assetsJson)
+                var assetsJson = releaseJson.GetProperty("assets");
+                foreach (var assetJson in assetsJson.EnumerateArray())
                 {
-                    var assetName = assetJson["name"].Value<string>();
-                    var assetUrl = assetJson["browser_download_url"].Value<string>();
+                    var assetName = assetJson.GetProperty("name").GetString();
+                    var assetUrl = assetJson.GetProperty("url").GetString();
 
                     // See if name matches
                     if (!WildcardPattern.IsMatch(assetName, _assetNamePattern))
@@ -106,7 +126,7 @@ namespace Onova.Services
             return map;
         }
 
-        private async Task<IReadOnlyDictionary<Version, string>> GetPackageVersionUrlMapAsync()
+        private async Task<IReadOnlyDictionary<Version, string>> GetPackageVersionUrlMapAsync(CancellationToken cancellationToken)
         {
             // Get releases
             var url = $"{_apiBaseAddress}/repos/{_repositoryOwner}/{_repositoryName}/releases";
@@ -117,7 +137,7 @@ namespace Onova.Services
                 request.Headers.IfNoneMatch.Add(_cachedPackageVersionUrlMapETag);
 
             // Get response
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             // If not modified - return cached
             if (response.StatusCode == HttpStatusCode.NotModified)
@@ -127,9 +147,8 @@ namespace Onova.Services
             response.EnsureSuccessStatusCode();
 
             // Parse response
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var releasesJson = JToken.Parse(responseContent);
-            var map = ParsePackageVersionUrlMap(releasesJson);
+            var responseJson = await response.Content.ReadAsJsonAsync(cancellationToken);
+            var map = ParsePackageVersionUrlMap(responseJson);
 
             // Cache result
             _cachedPackageVersionUrlMapETag = response.Headers.ETag;
@@ -140,9 +159,9 @@ namespace Onova.Services
         }
 
         /// <inheritdoc />
-        public async Task<IReadOnlyList<Version>> GetPackageVersionsAsync()
+        public async Task<IReadOnlyList<Version>> GetPackageVersionsAsync(CancellationToken cancellationToken = default)
         {
-            var versions = await GetPackageVersionUrlMapAsync();
+            var versions = await GetPackageVersionUrlMapAsync(cancellationToken);
             return versions.Keys.ToArray();
         }
 
@@ -151,7 +170,7 @@ namespace Onova.Services
             IProgress<double>? progress = null, CancellationToken cancellationToken = default)
         {
             // Get map
-            var map = await GetPackageVersionUrlMapAsync();
+            var map = await GetPackageVersionUrlMapAsync(cancellationToken);
 
             // Try to get package URL
             var packageUrl = map.GetValueOrDefault(version);
@@ -159,10 +178,14 @@ namespace Onova.Services
                 throw new PackageNotFoundException(version);
 
             // Download
-            using var input = await _httpClient.GetFiniteStreamAsync(packageUrl);
-            using var output = File.Create(destFilePath);
+            using var request = new HttpRequestMessage(HttpMethod.Get, packageUrl);
+            request.Headers.Add("Accept", "application/octet-stream"); // required
 
-            await input.CopyToAsync(output, progress, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            using var output = File.Create(destFilePath);
+            await response.Content.CopyToStreamAsync(output, progress, cancellationToken);
         }
     }
 }
