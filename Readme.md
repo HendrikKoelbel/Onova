@@ -1,18 +1,44 @@
 # Onova
 
-[![Build](https://github.com/Tyrrrz/Onova/workflows/CI/badge.svg?branch=master)](https://github.com/Tyrrrz/Onova/actions)
-[![Coverage](https://codecov.io/gh/Tyrrrz/Onova/branch/master/graph/badge.svg)](https://codecov.io/gh/Tyrrrz/Onova)
+[![Status](https://img.shields.io/badge/status-maintenance-ffd700.svg)](https://github.com/Tyrrrz/.github/blob/master/docs/project-status.md)
+[![Made in Ukraine](https://img.shields.io/badge/made_in-ukraine-ffd700.svg?labelColor=0057b7)](https://tyrrrz.me/ukraine)
+[![Build](https://img.shields.io/github/actions/workflow/status/Tyrrrz/Onova/main.yml?branch=master)](https://github.com/Tyrrrz/Onova/actions)
+[![Coverage](https://img.shields.io/codecov/c/github/Tyrrrz/Onova/master)](https://codecov.io/gh/Tyrrrz/Onova)
 [![Version](https://img.shields.io/nuget/v/Onova.svg)](https://nuget.org/packages/Onova)
 [![Downloads](https://img.shields.io/nuget/dt/Onova.svg)](https://nuget.org/packages/Onova)
-[![Donate](https://img.shields.io/badge/donate-$$$-purple.svg)](https://tyrrrz.me/donate)
+[![Discord](https://img.shields.io/discord/869237470565392384?label=discord)](https://discord.gg/2SUWKFnHSm)
+[![Fuck Russia](https://img.shields.io/badge/fuck-russia-e4181c.svg?labelColor=000000)](https://twitter.com/tyrrrz/status/1495972128977571848)
 
-⚠️ **Project status: maintenance mode** (bug fixes only).
+<table>
+    <tr>
+        <td width="99999" align="center">Development of this project is entirely funded by the community. <b><a href="https://tyrrrz.me/donate">Consider donating to support!</a></b></td>
+    </tr>
+</table>
 
-Onova is a lightweight auto-update framework for desktop applications. It was primarily designed for updating portable applications that are distributed using archive files, but can be extended for other use cases. Downloaded updates are installed using an embedded external executable, by overwriting files when the application exits. The library requires minimal configuration, doesn't impose any changes to the CI/CD process, and doesn't affect the application's life cycle.
+<p align="center">
+    <img src="favicon.png" alt="Icon" />
+</p>
 
-## Download
+**Onova** is a lightweight auto-update framework for desktop applications.
+It's primarily designed for performing in-place updates for portable applications distributed via archive files (as opposed to installers or packages).
+The library requires minimal configuration, doesn't impose any changes to the CI/CD process, and doesn't affect the life cycle of your application.
 
-- [NuGet](https://nuget.org/packages/Onova): `dotnet add package Onova`
+✨ See also [Onova.Publisher](https://github.com/dady8889/Onova.Publisher) — community project that provides an integrated installation experience based on **Onova**.
+
+## Terms of use<sup>[[?]](https://github.com/Tyrrrz/.github/blob/master/docs/why-so-political.md)</sup>
+
+By using this project or its source code, for any purpose and in any shape or form, you grant your **implicit agreement** to all the following statements:
+
+- You **condemn Russia and its military aggression against Ukraine**
+- You **recognize that Russia is an occupant that unlawfully invaded a sovereign state**
+- You **support Ukraine's territorial integrity, including its claims over temporarily occupied territories of Crimea and Donbas**
+- You **reject false narratives perpetuated by Russian state propaganda**
+
+To learn more about the war and how you can help, [click here](https://tyrrrz.me/ukraine). Glory to Ukraine! 🇺🇦
+
+## Install
+
+- 📦 [NuGet](https://nuget.org/packages/Onova): `dotnet add package Onova`
 
 ## Features
 
@@ -56,6 +82,7 @@ Since .NET assemblies do not support semantic versions, pre-releases are ignored
 #### `WebPackageResolver`
 
 This implementation requests a version manifest using the specified URL. The server is expected to respond with a plain-text list of package versions and their URLs, separated by space, one line per package. E.g.:
+
 ```
 1.0 https://my.server.com/1.0.zip
 2.0 https://my.server.com/2.0.zip
@@ -135,4 +162,4 @@ The updater will wait until all instances of the application have exited before 
 
 ## Etymology
 
-The name "Onova" comes from Ukrainian word for "update" (noun).
+The name "Onova" is derived from the Ukrainian word for "update" (noun).

@@ -1,66 +1,86 @@
 ﻿using System;
+using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 
-namespace Onova.Models
+namespace Onova.Models;
+
+/// <summary>
+/// Contains information about an assembly.
+/// </summary>
+public partial class AssemblyMetadata
 {
     /// <summary>
-    /// Contains information about an assembly.
+    /// Assembly name.
     /// </summary>
-    public partial class AssemblyMetadata
+    public string Name { get; }
+
+    /// <summary>
+    /// Assembly version.
+    /// </summary>
+    public Version Version { get; }
+
+    /// <summary>
+    /// Assembly file path.
+    /// </summary>
+    public string FilePath { get; }
+
+    internal string DirPath => Path.GetDirectoryName(FilePath)!;
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="AssemblyMetadata" />.
+    /// </summary>
+    public AssemblyMetadata(string name, Version version, string filePath)
     {
-        /// <summary>
-        /// Assembly name.
-        /// </summary>
-        public string Name { get; }
+        Name = name;
+        Version = version;
+        FilePath = filePath;
+    }
+}
 
-        /// <summary>
-        /// Assembly version.
-        /// </summary>
-        public Version Version { get; }
+public partial class AssemblyMetadata
+{
+    /// <summary>
+    /// Extracts assembly metadata from given assembly.
+    /// The specified path is used to override the executable file path in case the assembly is not meant to run directly.
+    /// </summary>
+    public static AssemblyMetadata FromAssembly(Assembly assembly, string assemblyFilePath) =>
+        new(assembly.GetName().Name!, assembly.GetName().Version!, assemblyFilePath);
 
-        /// <summary>
-        /// Assembly file path.
-        /// </summary>
-        public string FilePath { get; }
-
-        /// <summary>
-        /// Initializes a new instance of <see cref="AssemblyMetadata"/>.
-        /// </summary>
-        public AssemblyMetadata(string name, Version version, string filePath)
+    /// <summary>
+    /// Extracts assembly metadata from given assembly.
+    /// </summary>
+    public static AssemblyMetadata FromAssembly(Assembly assembly)
+    {
+        if (string.IsNullOrEmpty(assembly.Location))
         {
-            Name = name;
-            Version = version;
-            FilePath = filePath;
+            throw new InvalidOperationException(
+                $"The location of assembly {assembly.GetName().FullName} could not be determined. "
+                    + "Use the `AssemblyMetadata.FromAssembly(Assembly assembly, string assemblyFilePath)` method to provide it explicitly."
+            );
         }
+
+        return FromAssembly(assembly, assembly.Location);
     }
 
-    public partial class AssemblyMetadata
+    /// <summary>
+    /// Extracts assembly metadata from entry assembly.
+    /// </summary>
+    public static AssemblyMetadata FromEntryAssembly()
     {
-        /// <summary>
-        /// Extracts assembly metadata from given assembly.
-        /// The specified path is used to override the executable file path in case the assembly is not meant to run directly.
-        /// </summary>
-        public static AssemblyMetadata FromAssembly(Assembly assembly, string assemblyFilePath)
-        {
-            var name = assembly.GetName().Name!;
-            var version = assembly.GetName().Version!;
-            var filePath = assemblyFilePath;
+        // For most applications, the entry assembly is the entry point
+        var assembly =
+            Assembly.GetEntryAssembly()
+            ?? throw new InvalidOperationException("Can't get entry assembly.");
 
-            return new AssemblyMetadata(name, version, filePath);
-        }
+        if (!string.IsNullOrWhiteSpace(assembly.Location))
+            return FromAssembly(assembly, assembly.Location);
 
-        /// <summary>
-        /// Extracts assembly metadata from given assembly.
-        /// </summary>
-        public static AssemblyMetadata FromAssembly(Assembly assembly) => FromAssembly(assembly, assembly.Location);
+        // For self-contained applications, the executable is the entry point
+        var filePath =
+            Process.GetCurrentProcess().MainModule?.FileName
+            ?? throw new InvalidOperationException("Can't get current process main module.");
 
-        /// <summary>
-        /// Extracts assembly metadata from entry assembly.
-        /// </summary>
-        public static AssemblyMetadata FromEntryAssembly()
-        {
-            var assembly = Assembly.GetEntryAssembly() ?? throw new InvalidOperationException("Can't get entry assembly.");
-            return FromAssembly(assembly);
-        }
+        return FromAssembly(assembly, filePath);
     }
 }
