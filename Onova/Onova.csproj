@@ -10,13 +10,10 @@
     <Description>Compact and extensible auto-update library</Description>
     <PackageTags>auto update</PackageTags>
     <PackageProjectUrl>https://github.com/Tyrrrz/Onova</PackageProjectUrl>
-    <PackageReleaseNotes>https://github.com/Tyrrrz/Onova/blob/master/Changelog.md</PackageReleaseNotes>
+    <PackageReleaseNotes>https://github.com/Tyrrrz/Onova/releases/tag/$(Version)</PackageReleaseNotes>
     <PackageIcon>favicon.png</PackageIcon>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <DebugType>embedded</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,11 +22,11 @@
 
   <ItemGroup>
     <PackageReference Include="ConfigureAwait.Fody" Version="3.3.2" PrivateAssets="all" />
-    <PackageReference Include="CSharpier.MsBuild" Version="0.25.0" PrivateAssets="all" />
+    <PackageReference Include="CSharpier.MsBuild" Version="0.26.2" PrivateAssets="all" />
     <PackageReference Include="Fody" Version="6.8.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="all" />
-    <PackageReference Include="PolyShim" Version="1.5.0" PrivateAssets="all" />
-    <PackageReference Include="System.Text.Json" Version="7.0.3" Condition="'$(TargetFramework)' != 'netcoreapp3.0'" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+    <PackageReference Include="PolyShim" Version="1.8.0" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" Version="8.0.0" Condition="'$(TargetFramework)' != 'netcoreapp3.0'" />
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" Condition="'$(TargetFramework)' == 'net462'" />
   </ItemGroup>
 
