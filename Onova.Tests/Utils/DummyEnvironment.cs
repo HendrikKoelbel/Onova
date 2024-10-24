@@ -11,7 +11,7 @@ using Mono.Cecil;
 
 namespace Onova.Tests.Utils;
 
-internal class DummyEnvironment : IDisposable
+internal class DummyEnvironment(string rootDirPath) : IDisposable
 {
     private static readonly Assembly DummyAssembly = typeof(Dummy.Program).Assembly;
     private static readonly string DummyAssemblyFileName = Path.GetFileName(DummyAssembly.Location);
@@ -19,19 +19,9 @@ internal class DummyEnvironment : IDisposable
         DummyAssembly.Location
     )!;
 
-    private readonly string _rootDirPath;
+    private string DummyFilePath { get; } = Path.Combine(rootDirPath, DummyAssemblyFileName);
 
-    private string DummyFilePath { get; }
-
-    private string DummyPackagesDirPath { get; }
-
-    public DummyEnvironment(string rootDirPath)
-    {
-        _rootDirPath = rootDirPath;
-
-        DummyFilePath = Path.Combine(_rootDirPath, DummyAssemblyFileName);
-        DummyPackagesDirPath = Path.Combine(_rootDirPath, "Packages");
-    }
+    private string DummyPackagesDirPath { get; } = Path.Combine(rootDirPath, "Packages");
 
     private void SetAssemblyVersion(string filePath, Version version)
     {
@@ -45,13 +35,13 @@ internal class DummyEnvironment : IDisposable
     private void CreateBase(Version version)
     {
         // Create dummy directory
-        Directory.CreateDirectory(_rootDirPath);
+        Directory.CreateDirectory(rootDirPath);
 
         // Copy files
         foreach (var filePath in Directory.EnumerateFiles(DummyAssemblyDirPath))
         {
             var fileName = Path.GetFileName(filePath);
-            File.Copy(filePath, Path.Combine(_rootDirPath, fileName));
+            File.Copy(filePath, Path.Combine(rootDirPath, fileName));
         }
 
         // Change base dummy version
@@ -64,7 +54,7 @@ internal class DummyEnvironment : IDisposable
         Directory.CreateDirectory(DummyPackagesDirPath);
 
         // Temporarily copy the dummy
-        var dummyTempFilePath = Path.Combine(_rootDirPath, $"{DummyAssemblyFileName}.{version}");
+        var dummyTempFilePath = Path.Combine(rootDirPath, $"{DummyAssemblyFileName}.{version}");
         File.Copy(DummyFilePath, dummyTempFilePath);
 
         // Change dummy version
@@ -91,7 +81,7 @@ internal class DummyEnvironment : IDisposable
         {
             try
             {
-                DirectoryEx.DeleteIfExists(_rootDirPath);
+                DirectoryEx.DeleteIfExists(rootDirPath);
                 break;
             }
             catch (UnauthorizedAccessException) when (retriesRemaining > 0)
@@ -113,8 +103,8 @@ internal class DummyEnvironment : IDisposable
 
     public string[] GetLastRunArguments(Version version)
     {
-        var filePath = Path.Combine(_rootDirPath, $"lastrun-{version}.txt");
-        return File.Exists(filePath) ? File.ReadAllLines(filePath) : Array.Empty<string>();
+        var filePath = Path.Combine(rootDirPath, $"lastrun-{version}.txt");
+        return File.Exists(filePath) ? File.ReadAllLines(filePath) : [];
     }
 
     public string GetLastUpdaterLogs()
@@ -129,8 +119,6 @@ internal class DummyEnvironment : IDisposable
         return File.Exists(filePath) ? File.ReadAllText(filePath) : "";
     }
 
-    public bool IsRunning() => !FileEx.CheckWriteAccess(DummyFilePath);
-
     public async Task<string> RunDummyAsync(params string[] arguments)
     {
         var result = await Cli.Wrap("dotnet")
@@ -138,6 +126,36 @@ internal class DummyEnvironment : IDisposable
             .ExecuteBufferedAsync();
 
         return result.StandardOutput;
+    }
+
+    public async Task WaitUntilUpdaterExitsAsync(CancellationToken cancellationToken = default)
+    {
+        var filePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Onova",
+            DummyAssembly.GetName().Name!,
+            "Onova.lock"
+        );
+
+        // Try deleting the lock file
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                File.Delete(filePath);
+                return;
+            }
+            catch (FileNotFoundException)
+            {
+                return;
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     public void Dispose() => Cleanup();

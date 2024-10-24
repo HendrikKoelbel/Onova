@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using Onova.Exceptions;
@@ -18,6 +19,7 @@ namespace Onova;
 /// <summary>
 /// Entry point for handling application updates.
 /// </summary>
+[SupportedOSPlatform("windows")]
 public class UpdateManager : IUpdateManager
 {
     private const string UpdaterResourceName = "Onova.Updater.exe";
@@ -258,23 +260,18 @@ public class UpdateManager : IUpdateManager
         var updaterArgs =
             $"\"{Updatee.FilePath}\" \"{packageContentDirPath}\" \"{restart}\" \"{routedArgs}\"";
 
-        using var updaterProcess = new Process
+        using var updaterProcess = new Process();
+        updaterProcess.StartInfo = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = isWindows ? _updaterFilePath : "mono",
-                Arguments = isWindows ? updaterArgs : $"\"{_updaterFilePath}\" {updaterArgs}",
-                CreateNoWindow = true,
-                UseShellExecute = false
-            }
+            FileName = isWindows ? _updaterFilePath : "mono",
+            Arguments = isWindows ? updaterArgs : $"\"{_updaterFilePath}\" {updaterArgs}",
+            CreateNoWindow = true,
+            // Always need to use shell execute in order to run the updater as a separate process,
+            // in case the application is running inside a console window host.
+            // Also required to run with elevated privileges.
+            UseShellExecute = true,
+            Verb = isElevated ? "runas" : "",
         };
-
-        // If updater needs to be elevated, use shell execute with "runas"
-        if (isElevated)
-        {
-            updaterProcess.StartInfo.Verb = "runas";
-            updaterProcess.StartInfo.UseShellExecute = true;
-        }
 
         updaterProcess.Start();
     }
